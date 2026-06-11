@@ -72,5 +72,15 @@ data class PropertyDraftEntity(
     val parkingSpaces: Int,
     val ownershipType: String?,
     val localImagePaths: String, // Comma separated local/selected images
+    val localVideoPath: String?,
     val lastUpdated: Long
+)
+
+@Entity(tableName = "user_profiles")
+data class UserProfileEntity(
+    @PrimaryKey val id: String,
+    val fullName: String,
+    val phoneNumber: String,
+    val role: String,
+    val createdAt: Long
 )

@@ -9,7 +9,8 @@ import androidx.room.RoomDatabase
         FavoriteEntity::class,
         SearchHistoryEntity::class,
         RecentlyViewedEntity::class,
-        PropertyDraftEntity::class
+        PropertyDraftEntity::class,
+        UserProfileEntity::class
     ],
     version = 1,
     exportSchema = false

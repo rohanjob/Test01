@@ -31,7 +31,7 @@ class AppContainer(private val context: Context) {
     }
 
     val authRepository: AuthRepository by lazy {
-        AuthRepositoryImpl(remoteService)
+        AuthRepositoryImpl(localDao, remoteService)
     }
 
     val propertyRepository: PropertyRepository by lazy {

@@ -1,5 +1,7 @@
 package com.example.varahanest.data.repository
 
+import com.example.varahanest.data.local.LocalDao
+import com.example.varahanest.data.local.UserProfileEntity
 import com.example.varahanest.data.remote.SupabaseService
 import com.example.varahanest.domain.model.UserProfile
 import com.example.varahanest.domain.repository.AuthRepository
@@ -10,15 +12,26 @@ import javax.inject.Singleton
 
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
+    private val localDao: LocalDao,
     private val remoteService: SupabaseService
 ) : AuthRepository {
 
     override fun loginWithEmail(email: String, password: String): Flow<Result<UserProfile>> = flow {
-        emit(remoteService.loginWithEmail(email, password))
+        val result = remoteService.loginWithEmail(email, password)
+        result.onSuccess { profile ->
+            localDao.clearUserProfile()
+            localDao.insertUserProfile(profile.toEntity())
+        }
+        emit(result)
     }
 
     override fun signUpWithEmail(email: String, password: String, fullName: String): Flow<Result<UserProfile>> = flow {
-        emit(remoteService.signUpWithEmail(email, password, fullName))
+        val result = remoteService.signUpWithEmail(email, password, fullName)
+        result.onSuccess { profile ->
+            localDao.clearUserProfile()
+            localDao.insertUserProfile(profile.toEntity())
+        }
+        emit(result)
     }
 
     override fun sendOtp(phone: String): Flow<Result<Unit>> = flow {
@@ -26,18 +39,66 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override fun verifyOtp(phone: String, otp: String): Flow<Result<UserProfile>> = flow {
-        emit(remoteService.verifyOtp(phone, otp))
+        val result = remoteService.verifyOtp(phone, otp)
+        result.onSuccess { profile ->
+            localDao.clearUserProfile()
+            localDao.insertUserProfile(profile.toEntity())
+        }
+        emit(result)
     }
 
     override fun getCurrentUserFlow(): Flow<UserProfile?> = flow {
-        emit(remoteService.getCurrentUser())
+        val cached = localDao.getActiveUserProfile()?.toDomain()
+        emit(cached)
+        try {
+            val remote = remoteService.getCurrentUser()
+            if (remote != null) {
+                localDao.clearUserProfile()
+                localDao.insertUserProfile(remote.toEntity())
+                emit(remote)
+            }
+        } catch (e: Exception) {
+            // Ignore and fallback to cached
+        }
     }
 
     override suspend fun getCurrentUser(): UserProfile? {
-        return remoteService.getCurrentUser()
+        return try {
+            val remote = remoteService.getCurrentUser()
+            if (remote != null) {
+                localDao.clearUserProfile()
+                localDao.insertUserProfile(remote.toEntity())
+                remote
+            } else {
+                localDao.getActiveUserProfile()?.toDomain()
+            }
+        } catch (e: Exception) {
+            localDao.getActiveUserProfile()?.toDomain()
+        }
     }
 
     override fun logout(): Flow<Result<Unit>> = flow {
-        emit(remoteService.logout())
+        val result = remoteService.logout()
+        result.onSuccess {
+            localDao.clearUserProfile()
+        }
+        emit(result)
     }
 }
+
+// Mapper extension functions
+fun UserProfileEntity.toDomain() = UserProfile(
+    id = id,
+    fullName = fullName,
+    phoneNumber = phoneNumber,
+    role = role,
+    createdAt = createdAt
+)
+
+fun UserProfile.toEntity() = UserProfileEntity(
+    id = id,
+    fullName = fullName,
+    phoneNumber = phoneNumber,
+    role = role,
+    createdAt = createdAt
+)

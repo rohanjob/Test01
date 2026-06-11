@@ -67,8 +67,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAuthRepository(remoteService: SupabaseService): AuthRepository {
-        return AuthRepositoryImpl(remoteService)
+    fun provideAuthRepository(localDao: LocalDao, remoteService: SupabaseService): AuthRepository {
+        return AuthRepositoryImpl(localDao, remoteService)
     }
 
     @Provides

@@ -73,4 +73,14 @@ interface LocalDao {
 
     @Query("DELETE FROM property_drafts WHERE id = :id")
     fun deleteDraft(id: Int)
+
+    // User Profile Cache
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertUserProfile(profile: UserProfileEntity)
+
+    @Query("SELECT * FROM user_profiles LIMIT 1")
+    fun getActiveUserProfile(): UserProfileEntity?
+
+    @Query("DELETE FROM user_profiles")
+    fun clearUserProfile()
 }
