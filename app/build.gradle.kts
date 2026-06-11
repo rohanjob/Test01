@@ -113,11 +113,6 @@ dependencies {
   implementation(libs.ktor.client.content.negotiation)
   implementation(libs.ktor.serialization.kotlinx.json)
 
-  // Firebase
-  implementation(platform(libs.firebase.bom))
-  implementation(libs.firebase.messaging)
-  implementation(libs.firebase.analytics)
-  implementation(libs.firebase.crashlytics)
 }
 
 
