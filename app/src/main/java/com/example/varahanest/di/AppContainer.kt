@@ -26,8 +26,22 @@ class AppContainer(private val context: Context) {
         database.dao
     }
 
+    val supabaseClient: io.github.jan.supabase.SupabaseClient? by lazy {
+        val supabaseUrl = "https://odbomxyjoqswryacwsel.supabase.co"
+        val supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kYm9teHlqb3Fzd3J5YWN3c2VsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNDM1OTUsImV4cCI6MjA5NjcxOTU5NX0.XEJRMvzu3mB3T2InFhMDAkn6TUgqWm98gGC3ZJLMbZw"
+        try {
+            io.github.jan.supabase.createSupabaseClient(supabaseUrl, supabaseKey) {
+                install(io.github.jan.supabase.auth.Auth)
+                install(io.github.jan.supabase.postgrest.Postgrest)
+                install(io.github.jan.supabase.storage.Storage)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     val remoteService: SupabaseService by lazy {
-        SupabaseService(null) // Mock client fallback
+        SupabaseService(supabaseClient)
     }
 
     val authRepository: AuthRepository by lazy {
