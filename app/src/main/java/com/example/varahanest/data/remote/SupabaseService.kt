@@ -26,6 +26,19 @@ class SupabaseService @Inject constructor(
     @ApplicationContext private val context: Context,
     private val supabaseClient: SupabaseClient?
 ) {
+    data class ApprovedAgent(
+        val email: String,
+        val password: String,
+        val id: String,
+        val fullName: String,
+        val phoneNumber: String
+    )
+
+    private val approvedAgents = listOf(
+        ApprovedAgent("agent@rohith123.com", "agent123", "mock-agent-123", "Agent Rohith", "+919876543210"),
+        ApprovedAgent("agent@suresh101.com", "agent123", "mock-agent-101", "Agent Suresh", "+919102938475")
+    )
+
     // Falls back to mock data if supabase client is not configured/initialized
     private val isRealSupabase = supabaseClient != null
 
@@ -57,18 +70,20 @@ class SupabaseService @Inject constructor(
     }
 
     suspend fun loginWithEmail(email: String, psw: String): Result<UserProfile> = withContext(Dispatchers.IO) {
-        val agentEmailRegex = Regex("^agent@([a-zA-Z]+)([0-9]+)\\.com$", RegexOption.IGNORE_CASE)
-        val matchResult = agentEmailRegex.matchEntire(email.trim())
-        if (matchResult != null) {
-            val agentName = matchResult.groups[1]?.value?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Agent"
-            val agentId = matchResult.groups[2]?.value ?: "123"
-            if (psw.isEmpty()) {
-                return@withContext Result.failure(Exception("Password is required."))
+        val trimmedEmail = email.trim()
+        val isAgent = trimmedEmail.startsWith("agent", ignoreCase = true) || trimmedEmail.contains("agent", ignoreCase = true)
+        if (isAgent) {
+            val approved = approvedAgents.find { it.email.equals(trimmedEmail, ignoreCase = true) }
+            if (approved == null) {
+                return@withContext Result.failure(Exception("This Agent account is not approved by Admin."))
+            }
+            if (approved.password != psw) {
+                return@withContext Result.failure(Exception("Incorrect password for Agent account."))
             }
             val agentProfile = UserProfile(
-                id = "mock-agent-$agentId",
-                fullName = "Agent $agentName",
-                phoneNumber = "+919876543210",
+                id = approved.id,
+                fullName = approved.fullName,
+                phoneNumber = approved.phoneNumber,
                 role = "AGENT",
                 isPremium = true
             )
@@ -76,9 +91,6 @@ class SupabaseService @Inject constructor(
                 saveMockUser(agentProfile)
             }
             return@withContext Result.success(agentProfile)
-        }
-        if (email.contains("agent", ignoreCase = true)) {
-            return@withContext Result.failure(Exception("Email must be in the format agent@name123.com (e.g. agent@john123.com)."))
         }
         if (!isRealSupabase) {
             // Simulated login for previewing
@@ -103,6 +115,10 @@ class SupabaseService @Inject constructor(
     }
 
     suspend fun signUpWithEmail(email: String, psw: String, fullName: String): Result<UserProfile> = withContext(Dispatchers.IO) {
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.contains("agent", ignoreCase = true)) {
+            return@withContext Result.failure(Exception("Agent accounts can only be created by Admin in the Admin Portal."))
+        }
         if (!isRealSupabase) {
             return@withContext Result.success(UserProfile("mock-uuid-1", fullName, "+919876543210", "USER"))
         }
