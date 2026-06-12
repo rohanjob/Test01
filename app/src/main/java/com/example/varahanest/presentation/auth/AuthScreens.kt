@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Lock
@@ -26,6 +27,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +47,8 @@ import kotlinx.coroutines.delay
 fun LoginScreen(
     viewModel: AuthViewModel,
     onLoginSuccess: (UserProfile) -> Unit,
-    onNavigateToOtp: (String) -> Unit // Navigates to OTP and passes the phone number
+    onNavigateToOtp: (String) -> Unit, // Navigates to OTP and passes the phone number
+    onNavigateToAgentLogin: () -> Unit
 ) {
     val authState by viewModel.authState.collectAsState()
     var phone by remember { mutableStateOf("") }
@@ -72,20 +77,28 @@ fun LoginScreen(
             .fillMaxSize()
             .background(Color(0xFFF7F9FC)) // Light Grey Foundation
     ) {
-        // Floating ambient blur blobs in background
-        Box(
-            modifier = Modifier
-                .offset(x = bgOffset.dp, y = (-bgOffset).dp)
-                .size(400.dp)
-                .align(Alignment.TopEnd)
-                .background(Color(0x0C00327D), CircleShape)
+        // Full screen Dakshinamurthy background image (with high transparency to blend with background color)
+        Image(
+            painter = painterResource(id = R.drawable.dakshinamurthy),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+            alpha = 0.35f,
+            colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.6f) })
         )
+
+        // Radial gradient overlay to create a soft highlighted circle behind logo and title
         Box(
             modifier = Modifier
-                .offset(x = (-bgOffset).dp, y = bgOffset.dp)
-                .size(300.dp)
-                .align(Alignment.BottomStart)
-                .background(Color(0x0CFED65B), CircleShape)
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(420.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color.White.copy(alpha = 0.8f), Color.Transparent),
+                        radius = 700f
+                    )
+                )
         )
 
         Column(
@@ -117,18 +130,12 @@ fun LoginScreen(
                 textAlign = TextAlign.Center
             )
 
-            Text(
-                text = "Enter your credentials to access your portfolio",
-                fontSize = 14.sp,
-                color = Color(0xFF434653),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)
-            )
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Login Form Card
             Card(
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.85f)),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.8f)),
                 border = CardDefaults.outlinedCardBorder().copy(
                     brush = Brush.linearGradient(
                         colors = listOf(Color.White.copy(alpha = 0.5f), Color(0xFFC3C6D5).copy(alpha = 0.3f))
@@ -217,7 +224,65 @@ fun LoginScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Get Help Link
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Get help",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF00327D),
+                            modifier = Modifier
+                                .clickable { /* Mock help */ }
+                                .padding(4.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Agent Login Link
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNavigateToAgentLogin() }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SupportAgent,
+                            contentDescription = "Agent Login",
+                            tint = Color(0xFF434653),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Agent Login",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF434653)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Divider
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            color = Color(0xFFC3C6D5).copy(alpha = 0.3f),
+                            thickness = 1.dp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Brand watermark footer
                     Text(
@@ -233,6 +298,308 @@ fun LoginScreen(
             }
 
             Spacer(modifier = Modifier.height(48.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AgentLoginScreen(
+    viewModel: AuthViewModel,
+    onLoginSuccess: (UserProfile) -> Unit,
+    onNavigateBack: () -> Unit
+) {
+    val authState by viewModel.authState.collectAsState()
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var isPasswordVisible by remember { mutableStateOf(false) }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Success) {
+            onLoginSuccess((authState as AuthState.Success).profile)
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF7F9FC)) // Light Grey Foundation
+    ) {
+        // Full screen Dakshinamurthy background image (with high transparency to blend with background color)
+        Image(
+            painter = painterResource(id = R.drawable.dakshinamurthy),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+            alpha = 0.35f,
+            colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.6f) })
+        )
+
+        // Radial gradient overlay to create a soft highlighted circle behind logo and title
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(420.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color.White.copy(alpha = 0.8f), Color.Transparent),
+                        radius = 700f
+                    )
+                )
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Back Button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color(0xFF00327D)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Logo Header
+            Image(
+                painter = painterResource(id = R.drawable.varaha_logo),
+                contentDescription = "Varaha Logo",
+                modifier = Modifier
+                    .height(96.dp)
+                    .width(96.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Agent Login",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF191B22),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Login Form Card
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.8f)),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = Brush.linearGradient(
+                        colors = listOf(Color.White.copy(alpha = 0.5f), Color(0xFFC3C6D5).copy(alpha = 0.3f))
+                    )
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    // Email Field
+                    Text(
+                        text = "Email Address",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF434653),
+                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = {
+                            email = it
+                            emailError = null
+                        },
+                        placeholder = { Text("agent@varaha.com") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Email,
+                                contentDescription = "Email Icon",
+                                tint = Color(0xFF737784)
+                            )
+                        },
+                        isError = emailError != null,
+                        supportingText = emailError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF00327D),
+                            unfocusedBorderColor = Color(0xFFC3C6D5),
+                            errorBorderColor = MaterialTheme.colorScheme.error,
+                            focusedContainerColor = Color(0xFFFAF8FF),
+                            unfocusedContainerColor = Color(0xFFFAF8FF)
+                        ),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Password Field
+                    Text(
+                        text = "Password",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF434653),
+                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            passwordError = null
+                        },
+                        placeholder = { Text("••••••••") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Lock,
+                                contentDescription = "Password Icon",
+                                tint = Color(0xFF737784)
+                            )
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = "Toggle Password",
+                                    tint = Color(0xFF737784)
+                                )
+                            }
+                        },
+                        visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        isError = passwordError != null,
+                        supportingText = passwordError?.let { { Text(it) } },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF00327D),
+                            unfocusedBorderColor = Color(0xFFC3C6D5),
+                            errorBorderColor = MaterialTheme.colorScheme.error,
+                            focusedContainerColor = Color(0xFFFAF8FF),
+                            unfocusedContainerColor = Color(0xFFFAF8FF)
+                        ),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Error message from AuthState if any
+                    if (authState is AuthState.Error) {
+                        Text(
+                            text = (authState as AuthState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
+
+                    // Login Button
+                    Button(
+                        onClick = {
+                            val regex = Regex("^agent@[a-zA-Z]+[0-9]+\\.com$", RegexOption.IGNORE_CASE)
+                            if (email.isEmpty()) {
+                                emailError = "Email is required"
+                            } else if (!regex.matches(email.trim())) {
+                                emailError = "Format must be agent@name123.com"
+                            } else if (password.isEmpty()) {
+                                passwordError = "Password is required"
+                            } else {
+                                viewModel.login(email, password)
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00327D)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    ) {
+                        if (authState is AuthState.Loading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text("Login", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Login")
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Get Help Link
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Get help",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF00327D),
+                            modifier = Modifier
+                                .clickable { /* Mock help */ }
+                                .padding(4.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Divider
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            color = Color(0xFFC3C6D5).copy(alpha = 0.3f),
+                            thickness = 1.dp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Brand watermark footer
+                    Text(
+                        text = "POWERED BY SSP GLOBAL",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF737784).copy(alpha = 0.5f),
+                        letterSpacing = 1.5.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     }
 }
@@ -275,7 +642,7 @@ fun OtpVerificationScreen(
                 title = {},
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color(0xFF00327D))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color(0xFF00327D))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF7F9FC))

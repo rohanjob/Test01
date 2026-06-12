@@ -243,7 +243,6 @@ fun PropertyDraftEntity.toDomain() = Property(
     parkingSpaces = parkingSpaces,
     ownershipType = ownershipType,
     imageUrls = if (localImagePaths.isEmpty()) emptyList() else localImagePaths.split(","),
-    videoUrl = localVideoPath,
     createdAt = lastUpdated
 )
 
@@ -267,6 +266,5 @@ fun Property.toDraftEntity(localImagePaths: List<String>) = PropertyDraftEntity(
     parkingSpaces = parkingSpaces,
     ownershipType = ownershipType,
     localImagePaths = localImagePaths.joinToString(","),
-    localVideoPath = videoUrl,
     lastUpdated = System.currentTimeMillis()
 )

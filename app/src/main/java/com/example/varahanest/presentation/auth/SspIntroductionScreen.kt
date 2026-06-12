@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
@@ -42,16 +43,22 @@ fun SspIntroductionScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFAF8FF))
     ) {
-        // Asymmetric atmosphere blurs
+        Image(
+            painter = painterResource(id = R.drawable.hill),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Asymmetric atmosphere blurs (reduced opacity to blend with background image)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.4f)
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color(0xFFE2E2EB), Color(0xFFFAF8FF))
+                        colors = listOf(Color(0xFFE2E2EB).copy(alpha = 0.3f), Color.Transparent)
                     )
                 )
         )
@@ -69,10 +76,10 @@ fun SspIntroductionScreen(
             // Main Content Glass Card
             Card(
                 shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.9f)),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.8f)),
                 border = CardDefaults.outlinedCardBorder().copy(
                     brush = Brush.linearGradient(
-                        colors = listOf(Color.White, Color(0xFFC3C6D5).copy(alpha = 0.4f))
+                        colors = listOf(Color.White.copy(alpha = 0.6f), Color(0xFFC3C6D5).copy(alpha = 0.2f))
                     )
                 ),
                 modifier = Modifier
@@ -128,7 +135,7 @@ fun SspIntroductionScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    Divider(color = Color(0xFF00327D).copy(alpha = 0.1f), modifier = Modifier.width(280.dp))
+                    HorizontalDivider(color = Color(0xFF00327D).copy(alpha = 0.1f), modifier = Modifier.width(280.dp))
 
                     Spacer(modifier = Modifier.height(20.dp))
 

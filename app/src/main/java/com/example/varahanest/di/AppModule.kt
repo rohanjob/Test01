@@ -46,8 +46,13 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSupabaseClient(): SupabaseClient? {
-        val supabaseUrl = "https://odbomxyjoqswryacwsel.supabase.co"
-        val supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kYm9teHlqb3Fzd3J5YWN3c2VsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNDM1OTUsImV4cCI6MjA5NjcxOTU5NX0.XEJRMvzu3mB3T2InFhMDAkn6TUgqWm98gGC3ZJLMbZw"
+        val supabaseUrl = "https://your-supabase-url.supabase.co"
+        val supabaseKey = "your-supabase-anon-key"
+        
+        if (supabaseUrl.contains("your-supabase-url")) {
+            // Return null if credentials are not configured, SupabaseService handles fallback
+            return null
+        }
         
         return try {
             createSupabaseClient(supabaseUrl, supabaseKey) {
@@ -62,8 +67,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAuthRepository(localDao: LocalDao, remoteService: SupabaseService): AuthRepository {
-        return AuthRepositoryImpl(localDao, remoteService)
+    fun provideAuthRepository(remoteService: SupabaseService): AuthRepository {
+        return AuthRepositoryImpl(remoteService)
     }
 
     @Provides

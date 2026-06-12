@@ -1,5 +1,6 @@
 package com.example.varahanest.presentation.auth
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.varahanest.domain.model.UserProfile
@@ -9,7 +10,9 @@ import com.example.varahanest.domain.usecase.LogoutUseCase
 import com.example.varahanest.domain.usecase.RegisterUseCase
 import com.example.varahanest.domain.usecase.SendOtpUseCase
 import com.example.varahanest.domain.usecase.VerifyOtpUseCase
+import com.example.varahanest.data.local.VarahaDatabase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +28,8 @@ sealed interface AuthState {
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val db: VarahaDatabase,
     private val loginUseCase: LoginUseCase,
     private val registerUseCase: RegisterUseCase,
     private val sendOtpUseCase: SendOtpUseCase,
@@ -45,7 +50,14 @@ class AuthViewModel @Inject constructor(
 
     private fun checkSession() {
         viewModelScope.launch {
-            _currentUser.value = getCurrentUserUseCase()
+            val user = getCurrentUserUseCase()
+            if (user != null) {
+                val prefs = context.getSharedPreferences("varaha_nest_prefs", Context.MODE_PRIVATE)
+                val isPremium = prefs.getBoolean("premium_status_${user.id}", false)
+                _currentUser.value = user.copy(isPremium = isPremium)
+            } else {
+                _currentUser.value = null
+            }
         }
     }
 
@@ -54,8 +66,11 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             loginUseCase(email, psw).collect { result ->
                 result.onSuccess {
-                    _currentUser.value = it
-                    _authState.value = AuthState.Success(it)
+                    val prefs = context.getSharedPreferences("varaha_nest_prefs", Context.MODE_PRIVATE)
+                    val isPremium = prefs.getBoolean("premium_status_${it.id}", false)
+                    val profile = it.copy(isPremium = isPremium)
+                    _currentUser.value = profile
+                    _authState.value = AuthState.Success(profile)
                 }.onFailure {
                     _authState.value = AuthState.Error(it.message ?: "Authentication failed")
                 }
@@ -68,8 +83,11 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             registerUseCase(email, psw, fullName).collect { result ->
                 result.onSuccess {
-                    _currentUser.value = it
-                    _authState.value = AuthState.Success(it)
+                    val prefs = context.getSharedPreferences("varaha_nest_prefs", Context.MODE_PRIVATE)
+                    val isPremium = prefs.getBoolean("premium_status_${it.id}", false)
+                    val profile = it.copy(isPremium = isPremium)
+                    _currentUser.value = profile
+                    _authState.value = AuthState.Success(profile)
                 }.onFailure {
                     _authState.value = AuthState.Error(it.message ?: "Registration failed")
                 }
@@ -95,8 +113,11 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             verifyOtpUseCase(phone, otp).collect { result ->
                 result.onSuccess {
-                    _currentUser.value = it
-                    _authState.value = AuthState.Success(it)
+                    val prefs = context.getSharedPreferences("varaha_nest_prefs", Context.MODE_PRIVATE)
+                    val isPremium = prefs.getBoolean("premium_status_${it.id}", false)
+                    val profile = it.copy(isPremium = isPremium)
+                    _currentUser.value = profile
+                    _authState.value = AuthState.Success(profile)
                 }.onFailure {
                     _authState.value = AuthState.Error(it.message ?: "Invalid OTP code")
                 }
@@ -114,8 +135,55 @@ class AuthViewModel @Inject constructor(
             }
         }
     }
-    
+
+    fun upgradeToPremium() {
+        val user = _currentUser.value ?: return
+        val prefs = context.getSharedPreferences("varaha_nest_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("premium_status_${user.id}", true).apply()
+        val updated = user.copy(isPremium = true)
+        _currentUser.value = updated
+        _authState.value = AuthState.Success(updated)
+    }
+
+    fun downgradeFromPremium() {
+        val user = _currentUser.value ?: return
+        val prefs = context.getSharedPreferences("varaha_nest_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("premium_status_${user.id}", false).apply()
+        val updated = user.copy(isPremium = false)
+        _currentUser.value = updated
+        _authState.value = AuthState.Success(updated)
+    }
+
     fun clearError() {
         _authState.value = AuthState.Idle
+    }
+
+    fun updateUserProfile(fullName: String, phone: String) {
+        val user = _currentUser.value ?: return
+        val prefs = context.getSharedPreferences("varaha_nest_mock_session", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("full_name", fullName)
+            putString("phone_number", phone)
+            apply()
+        }
+        val updated = user.copy(fullName = fullName, phoneNumber = phone)
+        _currentUser.value = updated
+        _authState.value = AuthState.Success(updated)
+    }
+
+    fun deleteUserDataAndLogout() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                db.clearAllTables()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            val mockPrefs = context.getSharedPreferences("varaha_nest_mock_session", Context.MODE_PRIVATE)
+            mockPrefs.edit().clear().apply()
+            val mainPrefs = context.getSharedPreferences("varaha_nest_prefs", Context.MODE_PRIVATE)
+            mainPrefs.edit().clear().apply()
+            _currentUser.value = null
+            _authState.value = AuthState.Idle
+        }
     }
 }

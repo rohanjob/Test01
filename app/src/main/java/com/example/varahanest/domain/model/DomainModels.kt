@@ -36,6 +36,7 @@ data class UserProfile(
     val fullName: String = "",
     val phoneNumber: String = "",
     val role: String = "USER", // USER, OWNER, AGENT, BUILDER
+    val isPremium: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )
 

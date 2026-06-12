@@ -9,10 +9,9 @@ import androidx.room.RoomDatabase
         FavoriteEntity::class,
         SearchHistoryEntity::class,
         RecentlyViewedEntity::class,
-        PropertyDraftEntity::class,
-        UserProfileEntity::class
+        PropertyDraftEntity::class
     ],
-    version = 2,
+    version = 1,
     exportSchema = false
 )
 abstract class VarahaDatabase : RoomDatabase() {

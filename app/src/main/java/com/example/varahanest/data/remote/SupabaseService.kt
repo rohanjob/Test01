@@ -18,18 +18,73 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 @Singleton
 class SupabaseService @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val supabaseClient: SupabaseClient?
 ) {
     // Falls back to mock data if supabase client is not configured/initialized
     private val isRealSupabase = supabaseClient != null
 
+    private fun saveMockUser(user: UserProfile) {
+        val prefs = context.getSharedPreferences("varaha_nest_mock_session", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("user_id", user.id)
+            putString("full_name", user.fullName)
+            putString("phone_number", user.phoneNumber)
+            putString("role", user.role)
+            putBoolean("is_premium", user.isPremium)
+            apply()
+        }
+    }
+
+    private fun getMockUser(): UserProfile? {
+        val prefs = context.getSharedPreferences("varaha_nest_mock_session", Context.MODE_PRIVATE)
+        val id = prefs.getString("user_id", null) ?: return null
+        val fullName = prefs.getString("full_name", "") ?: ""
+        val phoneNumber = prefs.getString("phone_number", "") ?: ""
+        val role = prefs.getString("role", "USER") ?: "USER"
+        val isPremium = prefs.getBoolean("is_premium", false)
+        return UserProfile(id, fullName, phoneNumber, role, isPremium)
+    }
+
+    private fun clearMockUser() {
+        val prefs = context.getSharedPreferences("varaha_nest_mock_session", Context.MODE_PRIVATE)
+        prefs.edit().clear().apply()
+    }
+
     suspend fun loginWithEmail(email: String, psw: String): Result<UserProfile> = withContext(Dispatchers.IO) {
+        val agentEmailRegex = Regex("^agent@([a-zA-Z]+)([0-9]+)\\.com$", RegexOption.IGNORE_CASE)
+        val matchResult = agentEmailRegex.matchEntire(email.trim())
+        if (matchResult != null) {
+            val agentName = matchResult.groups[1]?.value?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Agent"
+            val agentId = matchResult.groups[2]?.value ?: "123"
+            if (psw.isEmpty()) {
+                return@withContext Result.failure(Exception("Password is required."))
+            }
+            val agentProfile = UserProfile(
+                id = "mock-agent-$agentId",
+                fullName = "Agent $agentName",
+                phoneNumber = "+919876543210",
+                role = "AGENT",
+                isPremium = true
+            )
+            if (!isRealSupabase) {
+                saveMockUser(agentProfile)
+            }
+            return@withContext Result.success(agentProfile)
+        }
+        if (email.contains("agent", ignoreCase = true)) {
+            return@withContext Result.failure(Exception("Email must be in the format agent@name123.com (e.g. agent@john123.com)."))
+        }
         if (!isRealSupabase) {
             // Simulated login for previewing
-            return@withContext Result.success(UserProfile("mock-uuid-1", "Varaha User", "+919876543210", "OWNER"))
+            val defaultUser = UserProfile("mock-uuid-1", "Varaha User", "+919876543210", "OWNER")
+            saveMockUser(defaultUser)
+            return@withContext Result.success(defaultUser)
         }
         try {
             supabaseClient!!.auth.signInWith(Email) {
@@ -86,7 +141,9 @@ class SupabaseService @Inject constructor(
 
     suspend fun verifyOtp(phone: String, token: String): Result<UserProfile> = withContext(Dispatchers.IO) {
         if (!isRealSupabase) {
-            return@withContext Result.success(UserProfile("mock-uuid-1", "OTP User", phone, "USER"))
+            val otpUser = UserProfile("mock-uuid-1", "OTP User", phone, "USER")
+            saveMockUser(otpUser)
+            return@withContext Result.success(otpUser)
         }
         try {
             supabaseClient!!.auth.verifyPhoneOtp(
@@ -108,7 +165,7 @@ class SupabaseService @Inject constructor(
 
     suspend fun getCurrentUser(): UserProfile? = withContext(Dispatchers.IO) {
         if (!isRealSupabase) {
-            return@withContext UserProfile("mock-uuid-1", "Varaha Dev User", "+919876543210", "OWNER")
+            return@withContext getMockUser()
         }
         try {
             val user = supabaseClient!!.auth.currentUserOrNull() ?: return@withContext null
@@ -126,7 +183,10 @@ class SupabaseService @Inject constructor(
     }
 
     suspend fun logout(): Result<Unit> = withContext(Dispatchers.IO) {
-        if (!isRealSupabase) return@withContext Result.success(Unit)
+        if (!isRealSupabase) {
+            clearMockUser()
+            return@withContext Result.success(Unit)
+        }
         try {
             supabaseClient!!.auth.signOut()
             Result.success(Unit)
@@ -226,7 +286,7 @@ class SupabaseService @Inject constructor(
                 parkingSpaces = 2,
                 ownershipType = "FREEHOLD",
                 postedBy = "OWNER",
-                verified = true,
+                verified = false,
                 imageUrls = listOf(
                     "https://lh3.googleusercontent.com/aida-public/AB6AXuA_RFOE-fC8jbLm7roFS-7kf0iGFsgGxZYZgXLiyA8i8Bl45rTHkeYV092aepK4hx7E0nH_0xMc-bVBan4Cy4BI0vfa4Tz10WMRHrF4bwbqcnCKm3E1Moo5ySkcpdnTXAIPitusTxoiyJOVcJ8shNdYf6kUb6ymuucg3WLjCkw3i0MwBufqinPsug02uQKPmC4WcAABHD3Gitk7_xJ6b_rBUNsxi4jT2Zb9OgQqk8XT-IxTb07xDEgD3iPcNcVgRLo7lqc129ZyEoF3"
                 )
@@ -278,9 +338,35 @@ class SupabaseService @Inject constructor(
                 parkingSpaces = 4,
                 ownershipType = "LEASEHOLD",
                 postedBy = "AGENT",
-                verified = true,
+                verified = false,
                 imageUrls = listOf(
                     "https://lh3.googleusercontent.com/aida-public/AB6AXuBJPJiDuQCk8Vxrcn1kkV90_ctV2TdHYW11Q_JFg12XpunJLTlt1YXVK1flSwF-aHtWtScYrR-4z-JH2dBsMtwQp_81UuclYYZANxxAQlqEbwNXUNQSpmPNAtxi4n2w2JswAIizl8ulDiCIQ8oOe-XvFb_lgBKPi1-lT2AQYgn3mAGC7fR2xcGadBpQoRq7YQ3CdOqM96a3vzdMhv5Y4-NH1YIBHUf39a89NwV0ET8DLaQ6FWDJjN1q5KDEc1tZRFYAIMwTsqB0EF1x"
+                )
+            ),
+            Property(
+                id = "mock-4",
+                ownerId = "mock-uuid-5",
+                title = "Varaha Premium Heights",
+                description = "Ultra premium high-rise residence with a panoramic city view, private deck, automated control systems, VRV air conditioning, customized Italian marble finishes, and standard premium membership amenities.",
+                price = 85000000.0, // 8.5 Cr
+                transactionType = "BUY",
+                propertyCategory = "RESIDENTIAL_APARTMENT",
+                bedrooms = 4,
+                bathrooms = 4,
+                balconies = 3,
+                areaSqft = 3200.0,
+                address = "Golf Course Extension Road",
+                city = "Gurugram",
+                state = "Haryana",
+                latitude = 28.398,
+                longitude = 77.098,
+                furnishingStatus = "FULLY_FURNISHED",
+                parkingSpaces = 3,
+                ownershipType = "FREEHOLD",
+                postedBy = "BUILDER",
+                verified = true,
+                imageUrls = listOf(
+                    "https://lh3.googleusercontent.com/aida-public/AB6AXuBUVZayhVS78h9G25sfWEGIpzPEjlG5Xf-O1aAO_M5bCxdwcLxxW_yF4HG3XAm8C8FkuyGtVKSkxbIR7CoaZw6n-BJk8AyTwx0uPeK5sApVRFJEIwuu5ph7QOJ0kyJxkE5cYjNm0l7K2Nq-3hJhvMztYiubFaTzvbll3fprX6CUkOh-pGJb9VEd84S9MljCe2NIaUf-DZquYVQhMaU8yJ-ki4n7NnmqowdUOf0PilneKS0sSUjkzC0GPSo6OqEIUEOBHtCd_8OhY0ri"
                 )
             )
         )

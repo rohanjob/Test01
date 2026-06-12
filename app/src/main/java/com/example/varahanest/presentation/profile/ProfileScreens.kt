@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.varahanest.domain.model.UserProfile
 import com.example.varahanest.presentation.auth.AuthViewModel
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,11 +29,16 @@ fun ProfileScreen(
     authViewModel: AuthViewModel,
     onNavigateToSupport: () -> Unit,
     onNavigateToLogin: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onUpgradeClick: () -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
-    var notificationEnabled by remember { mutableStateOf(true) }
-    var offlineCacheEnabled by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("varaha_nest_prefs", Context.MODE_PRIVATE) }
+    
+    var notificationEnabled by remember { mutableStateOf(prefs.getBoolean("push_notifications", true)) }
+    var offlineCacheEnabled by remember { mutableStateOf(prefs.getBoolean("offline_cache", true)) }
 
     LaunchedEffect(currentUser) {
         if (currentUser == null) {
@@ -42,7 +52,7 @@ fun ProfileScreen(
                 title = { Text("Profile & Settings", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -100,6 +110,79 @@ fun ProfileScreen(
                         }
                     }
 
+                    // Premium Membership Card
+                    val isAgent = user.role == "AGENT"
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (user.isPremium || isAgent) MaterialTheme.colorScheme.primary.copy(alpha = 0.05f) 
+                                             else MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp, 
+                            if (user.isPremium || isAgent) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) 
+                            else MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = if (user.isPremium || isAgent) Icons.Default.Star else Icons.Default.Lock,
+                                        contentDescription = "Subscription Info",
+                                        tint = if (user.isPremium || isAgent) MaterialTheme.colorScheme.primary else Color.Gray,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = if (isAgent) "Varaha Agent Account 👑" 
+                                                   else if (user.isPremium) "Varaha Premium Member 👑" 
+                                                   else "Normal Membership",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+                                        Text(
+                                            text = if (isAgent) "All premium properties unlocked with Agent privileges"
+                                                   else if (user.isPremium) "Unlimited premium property details unlocked" 
+                                                   else "Unlock premium property details",
+                                            fontSize = 11.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            if (!isAgent) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
+                                if (user.isPremium) {
+                                    OutlinedButton(
+                                        onClick = { authViewModel.downgradeFromPremium() },
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Gray)
+                                    ) {
+                                        Text("Reset Subscription (Developer Test)", fontSize = 12.sp)
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = onUpgradeClick,
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Get Lifetime Premium - ₹999", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Preferences
                     Text("App Settings", fontWeight = FontWeight.Bold, fontSize = 16.sp)
 
@@ -122,7 +205,10 @@ fun ProfileScreen(
                                 }
                                 Switch(
                                     checked = notificationEnabled,
-                                    onCheckedChange = { notificationEnabled = it }
+                                    onCheckedChange = { 
+                                        notificationEnabled = it
+                                        prefs.edit().putBoolean("push_notifications", it).apply()
+                                    }
                                 )
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
@@ -140,7 +226,10 @@ fun ProfileScreen(
                                 }
                                 Switch(
                                     checked = offlineCacheEnabled,
-                                    onCheckedChange = { offlineCacheEnabled = it }
+                                    onCheckedChange = { 
+                                        offlineCacheEnabled = it
+                                        prefs.edit().putBoolean("offline_cache", it).apply()
+                                    }
                                 )
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
@@ -159,7 +248,25 @@ fun ProfileScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text("Support & Help Desk", fontSize = 14.sp)
                                 }
-                                Icon(Icons.Default.PlayArrow, contentDescription = "Go", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Go", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.05f))
+
+                            // Settings Screen Link
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onNavigateToSettings() }
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.Gray)
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text("Account Settings", fontSize = 14.sp)
+                                }
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Go", tint = Color.Gray, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -173,7 +280,7 @@ fun ProfileScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                         modifier = Modifier.fillMaxWidth().height(56.dp)
                     ) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Logout")
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout")
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Log Out", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }

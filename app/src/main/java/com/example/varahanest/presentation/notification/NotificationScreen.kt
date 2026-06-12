@@ -48,47 +48,52 @@ fun NotificationsScreen(
     val terraText = Color(0xFF2E3230)
     val terraTextVariant = Color(0xFF4A4E4A)
     val terraOutline = Color(0xFFC4C8BC)
+    val terraError = Color(0xFFB83230)
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
     
-    // Interactive unread/read state
     var readNotificationIds by remember { mutableStateOf(setOf("inquiry-1", "system-1")) }
+    var showMenu by remember { mutableStateOf(false) }
 
-    val notifications = listOf(
-        NotificationModel(
-            id = "listing-1",
-            type = "NEW_LISTING",
-            title = "NEW LISTING",
-            body = "New 3 BHK Villa available in Sector 88A, Gurugram. Check it out!",
-            imageUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuBDVzQMuGazPs5Lic1UWgvYaadEclFzGtxfaFx_1rT9pMpC8TsMJYQqMl9z3FKq42HvVNUW4V_dgjuY2d0N6HYINsh5C6JZnx-x96K4rgsZbjB-KNTGAKyXQL7RgfbzMf1UoV1Ue4Q3bVwS23arB8oHSho1x0ryYXBrwdwNqVexKbuIuLV1WA-xFIExo3wky7wirwivxmp96lr4nU4U4rlVGJFsdAqp_lVwZeipKrIPgACr1B3aXrjU7K_mmEnm4I_7zw_vTgI0K6mj",
-            timeAgo = "2h ago"
-        ),
-        NotificationModel(
-            id = "price-1",
-            type = "PRICE_DROP",
-            title = "PRICE DROP",
-            body = "Price reduced for Emerald Estates! Now starting at ₹2.0 Cr.",
-            timeAgo = "5h ago"
-        ),
-        NotificationModel(
-            id = "inquiry-1",
-            type = "INQUIRY_UPDATE",
-            title = "INQUIRY UPDATE",
-            body = "Owner of The Marigold Villas has responded to your inquiry regarding maintenance fees.",
-            timeAgo = "Yesterday"
-        ),
-        NotificationModel(
-            id = "system-1",
-            type = "SYSTEM",
-            title = "SYSTEM",
-            body = "Your profile was successfully updated. Verified badge is now active.",
-            timeAgo = "3 days ago"
+    var notificationsList by remember {
+        mutableStateOf(
+            listOf(
+                NotificationModel(
+                    id = "listing-1",
+                    type = "NEW_LISTING",
+                    title = "NEW LISTING",
+                    body = "New 3 BHK Villa available in Sector 88A, Gurugram. Check it out!",
+                    imageUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuBDVzQMuGazPs5Lic1UWgvYaadEclFzGtxfaFx_1rT9pMpC8TsMJYQqMl9z3FKq42HvVNUW4V_dgjuY2d0N6HYINsh5C6JZnx-x96K4rgsZbjB-KNTGAKyXQL7RgfbzMf1UoV1Ue4Q3bVwS23arB8oHSho1x0ryYXBrwdwNqVexKbuIuLV1WA-xFIExo3wky7wirwivxmp96lr4nU4U4rlVGJFsdAqp_lVwZeipKrIPgACr1B3aXrjU7K_mmEnm4I_7zw_vTgI0K6mj",
+                    timeAgo = "2h ago"
+                ),
+                NotificationModel(
+                    id = "price-1",
+                    type = "PRICE_DROP",
+                    title = "PRICE DROP",
+                    body = "Price reduced for Emerald Estates! Now starting at ₹2.0 Cr.",
+                    timeAgo = "5h ago"
+                ),
+                NotificationModel(
+                    id = "inquiry-1",
+                    type = "INQUIRY_UPDATE",
+                    title = "INQUIRY UPDATE",
+                    body = "Owner of The Marigold Villas has responded to your inquiry regarding maintenance fees.",
+                    timeAgo = "Yesterday"
+                ),
+                NotificationModel(
+                    id = "system-1",
+                    type = "SYSTEM",
+                    title = "SYSTEM",
+                    body = "Your profile was successfully updated. Verified badge is now active.",
+                    timeAgo = "3 days ago"
+                )
+            )
         )
-    )
+    }
 
     // Filter logic
-    val filteredNotifications = notifications.filter { notification ->
+    val filteredNotifications = notificationsList.filter { notification ->
         val matchesSearch = notification.body.contains(searchQuery, ignoreCase = true) || 
                             notification.title.contains(searchQuery, ignoreCase = true)
         val matchesCategory = when (selectedCategory) {
@@ -122,12 +127,34 @@ fun NotificationsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {}) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert, 
-                            contentDescription = "More options",
-                            tint = terraPrimary
-                        )
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert, 
+                                contentDescription = "More options",
+                                tint = terraPrimary
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.background(terraSurface)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Mark all as read", color = terraText) },
+                                onClick = {
+                                    readNotificationIds = readNotificationIds + notificationsList.map { it.id }.toSet()
+                                    showMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Clear all", color = terraError) },
+                                onClick = {
+                                    notificationsList = emptyList()
+                                    showMenu = false
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = terraSurface)
